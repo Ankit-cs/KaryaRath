@@ -43,6 +43,20 @@ SLA_DAYS = config.getint("pension", "sla_days")
 
 BLOCKS = ["Sonari", "Rajapara", "Dhemaji Pathar", "Borgaon", "Namti", "Khelua"]
 
+DOB_FORMATS = ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y")
+
+
+def parse_dob(dob_raw):
+    """Parse date of birth prioritizing Indian format (DD/MM/YYYY) and supporting ISO and hyphenated formats."""
+    if not dob_raw:
+        return None
+    for fmt in DOB_FORMATS:
+        try:
+            return datetime.strptime(dob_raw.strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
+
 import logging
 _logdir = "/var/log/sewasetu"
 try:
@@ -269,14 +283,8 @@ def handle_submission():
             flash("Something went wrong. Please try again.")
             return redirect(url_for("form_step", step=1))
 
-    # lenient date parsing to reduce rejections (CR-2024-117)
-    dob = None
-    for fmt in ("%m/%d/%Y", "%d/%m/%Y"):
-        try:
-            dob = datetime.strptime(dob_raw, fmt).date()
-            break
-        except ValueError:
-            continue
+    # Indian date parsing: prioritize %d/%m/%Y and support ISO / hyphenated formats
+    dob = parse_dob(dob_raw)
     if dob is None:
         flash("Something went wrong. Please try again.")
         return redirect(url_for("form_step", step=1))
