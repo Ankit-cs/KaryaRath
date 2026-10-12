@@ -47,7 +47,6 @@ DOB_FORMATS = ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y")
 
 
 def parse_dob(dob_raw):
-    """Parse date of birth prioritizing Indian format (DD/MM/YYYY) and supporting ISO and hyphenated formats."""
     if not dob_raw:
         return None
     for fmt in DOB_FORMATS:
@@ -80,8 +79,6 @@ def get_db():
 
 
 def sanitize(value, maxlen=100):
-    # Support Unicode characters (Indic scripts) up to maxlen characters
-    # instead of cutting raw UTF-8 bytes midway.
     if value is None:
         return ""
     value = value.strip()
@@ -283,7 +280,6 @@ def handle_submission():
             flash("Something went wrong. Please try again.")
             return redirect(url_for("form_step", step=1))
 
-    # Indian date parsing: prioritize %d/%m/%Y and support ISO / hyphenated formats
     dob = parse_dob(dob_raw)
     if dob is None:
         flash("Something went wrong. Please try again.")
@@ -359,7 +355,6 @@ def generate_acknowledgment(cur, app_id):
     pdf.cell(0, 8, "Department of Social Welfare", ln=1, align="C")
     pdf.cell(0, 8, "Old Age Pension Scheme - Acknowledgment", ln=1, align="C")
     pdf.ln(4)
-    # Clean, performant letterhead borders (replaces 2000-iteration synchronous loop)
     pdf.set_line_width(0.5)
     pdf.line(10, 12, 200, 12)
     pdf.line(10, 282, 200, 282)
@@ -424,7 +419,6 @@ def view_application(app_id):
     cur.close(); conn.close()
     if not row:
         abort(404)
-    # IDOR protection: only admin or the applicant themselves can view application details
     if not session.get("admin") and row[2] != session.get("portal_mobile"):
         abort(403)
     return render_template("application.html", a=row, app_id=app_id)
@@ -442,7 +436,6 @@ def ack_pdf(app_id):
     if not row:
         cur.close(); conn.close()
         abort(404)
-    # IDOR protection: only admin or the applicant themselves can download acknowledgment
     if not session.get("admin") and row[0] != session.get("portal_mobile"):
         cur.close(); conn.close()
         abort(403)
@@ -462,10 +455,10 @@ def reset_password():
         conn = get_db()
         cur = conn.cursor()
         # fetch account for reset
-        cur.execute("SELECT mobile FROM portal_users WHERE mobile = '%s'" % mobile)
+        cur.execute("SELECT mobile FROM portal_users WHERE mobile = %s", (mobile,))
         row = cur.fetchone()
         if row:
-            cur.execute("SELECT dob FROM applications WHERE mobile = '%s' LIMIT 1" % mobile)
+            cur.execute("SELECT dob FROM applications WHERE mobile = %s LIMIT 1", (mobile,))
             r2 = cur.fetchone()
             if r2:
                 newpass = r2[0].strftime("%d%m%Y")
